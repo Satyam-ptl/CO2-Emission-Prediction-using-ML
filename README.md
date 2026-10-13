@@ -9,6 +9,7 @@
 - `code/stage1b_external_and_intervals.py` — external validity check and size-stratified conformal intervals.
 - `code/stage2_figures.py` — Figures 1–7. `code/build_spec.py` + `code/render_docx.js` — manuscript text/tables are generated from the result files.
 - `results/` — all output tables (CSV), figures (PNG, 300 dpi) and predictions.
+- `results/preds/stage3_adaptive_intervals.csv` and `results/preds/stage3_mondrian_intervals.csv` — row-level Stage 3 interval predictions, bounds, widths, calibration details, and empirical coverage indicators used to derive Tables 30–33.
 - `run_all.sh` — reproduces everything.
 - `package.json` — optional Node.js dependency for rendering the manuscript DOCX.
 
@@ -37,6 +38,10 @@ overwritten. Recomputed tables, predictions, and figures are written to
 `work/out/`. The integrity suite runs first and must pass before the analysis
 continues.
 
+The extended benchmark is resumable: existing `work/out/preds/s3/origin_*.csv`
+files are reused. For a clean recomputation that removes only the generated
+working directory, run `CLEAN_WORK=1 bash run_all.sh`.
+
 The manuscript DOCX is optional. To enable it, install Node.js, run
 `npm install` once from the repository root, and rerun `bash run_all.sh`.
 Without the `docx` package, the analysis still runs and the DOCX step is
@@ -44,6 +49,12 @@ reported as skipped.
 
 The supplied `results/` directory contains the checked-in reference outputs;
 it is not updated automatically by `run_all.sh`.
+
+Stage 3 aggregate summaries are computed from the row-level interval artifacts
+written under `work/out/preds/`. The saved rows support independent checks of
+coverage, interval ordering, widths, and the reported Stage 3 coverage and
+width summaries. Coverage remains empirical rolling-origin coverage; these
+files do not establish conditional coverage guarantees.
 
 
 ## Extended benchmark (stage 3)

@@ -4,9 +4,13 @@ set -e
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 cd "$ROOT"
 PYTHON="${PYTHON:-python3}"
+if [ "${CLEAN_WORK:-0}" = "1" ]; then
+  rm -rf "$ROOT/work"
+fi
 "$PYTHON" -m pytest -q tests                                   # integrity + no-leakage tests (fail fast)
 mkdir -p work && cp data/modeling_dataset_step1.csv work/ && cd work
 cp ../code/*.py ../code/*.js . 
+cp ../data/T13_external_ICI_cement_PIB.csv .
 "$PYTHON" stage1_pipeline.py modeling_dataset_step1.csv      # tables T1-T12, predictions
 "$PYTHON" stage1b_external_and_intervals.py                   # external check (T13) + size-stratified intervals (T10c)
 "$PYTHON" stage2_figures.py                                   # Figures 1-7
