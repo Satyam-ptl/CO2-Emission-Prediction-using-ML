@@ -16,7 +16,7 @@ warnings.filterwarnings("ignore")
 
 SEED = 42; RNG = np.random.default_rng(SEED)
 DATA = sys.argv[1] if len(sys.argv) > 1 else "modeling_dataset_step1.csv"
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out")
+OUT = "out"
 T = lambda n: os.path.join(OUT, "tables", n); P = lambda n: os.path.join(OUT, "preds", n)
 for _sub in ("preds", "tables", "figures"):
     os.makedirs(os.path.join(OUT, _sub), exist_ok=True)

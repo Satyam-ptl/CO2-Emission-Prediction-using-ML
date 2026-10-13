@@ -10,6 +10,7 @@
 - `code/stage2_figures.py` — Figures 1–7. `code/build_spec.py` + `code/render_docx.js` — manuscript text/tables are generated from the result files.
 - `results/` — all output tables (CSV), figures (PNG, 300 dpi) and predictions.
 - `run_all.sh` — reproduces everything.
+- `package.json` — optional Node.js dependency for rendering the manuscript DOCX.
 
 ## Design in one paragraph
 Forecast origin t, target y(t+1), features known at t only. Last 13 origins = test set; the 12 origins before = validation window used to choose the feature set and model; rolling-origin refits monthly. Seeds fixed (42).
@@ -18,8 +19,34 @@ Forecast origin t, target y(t+1), features known at t only. Last 13 origins = te
 - The Climate TRACE data are public (https://climatetrace.org/explore); cite the inventory version and access date.
 - Add a repository DOI (e.g. Zenodo) to the manuscript's code-availability statement before submission.
 
+## Reproduction
 
-## Extended benchmark (stage 3, added on branch `improve-benchmark`)
+From the repository root, install the Python dependencies and run:
+
+```bash
+python3 -m pip install -r requirements.txt
+bash run_all.sh
+```
+
+On systems with multiple Python installations, set `PYTHON` to the interpreter
+where the dependencies were installed, for example
+`PYTHON=/path/to/python bash run_all.sh`.
+
+The analysis is executed in `work/` so committed files under `results/` are not
+overwritten. Recomputed tables, predictions, and figures are written to
+`work/out/`. The integrity suite runs first and must pass before the analysis
+continues.
+
+The manuscript DOCX is optional. To enable it, install Node.js, run
+`npm install` once from the repository root, and rerun `bash run_all.sh`.
+Without the `docx` package, the analysis still runs and the DOCX step is
+reported as skipped.
+
+The supplied `results/` directory contains the checked-in reference outputs;
+it is not updated automatically by `run_all.sh`.
+
+
+## Extended benchmark (stage 3)
 - `code/stage3_benchmark.py`: 43 expanding-window rolling origins (Dec 2022 to Jun 2026), one-month-ahead, per plant. Baselines: persistence, **calendar-adjusted persistence** (y_t * days(t+1)/days(t)), seasonal naive (+calendar-adjusted), 3-month mean daily rate, SES, Theta. ML: RF/HGB on the daily-rate target, RF on tonnes. Fixed hyper-parameters, refit every origin, resumable (`out/preds/s3/`).
 - `code/stage3b_inference.py`: metrics (MAE, RMSE, WAPE, MASE, bias), circular block bootstrap over months, Diebold-Mariano (HAC, Harvey correction), Holm correction. Convention: delta = loss(model) - loss(reference); negative = model better.
 - `tests/`: panel integrity, leap-year calendar factor, and a no-future-information test.
