@@ -17,3 +17,10 @@ Forecast origin t, target y(t+1), features known at t only. Last 13 origins = te
 ## Notes
 - The Climate TRACE data are public (https://climatetrace.org/explore); cite the inventory version and access date.
 - Add a repository DOI (e.g. Zenodo) to the manuscript's code-availability statement before submission.
+
+
+## Extended benchmark (stage 3, added on branch `improve-benchmark`)
+- `code/stage3_benchmark.py`: 43 expanding-window rolling origins (Dec 2022 to Jun 2026), one-month-ahead, per plant. Baselines: persistence, **calendar-adjusted persistence** (y_t * days(t+1)/days(t)), seasonal naive (+calendar-adjusted), 3-month mean daily rate, SES, Theta. ML: RF/HGB on the daily-rate target, RF on tonnes. Fixed hyper-parameters, refit every origin, resumable (`out/preds/s3/`).
+- `code/stage3b_inference.py`: metrics (MAE, RMSE, WAPE, MASE, bias), circular block bootstrap over months, Diebold-Mariano (HAC, Harvey correction), Holm correction. Convention: delta = loss(model) - loss(reference); negative = model better.
+- `tests/`: panel integrity, leap-year calendar factor, and a no-future-information test.
+- Fixed: output folders (`out/tables`, `out/preds`, `out/figures`) are now created automatically.

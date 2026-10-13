@@ -18,7 +18,8 @@ SEED = 42; RNG = np.random.default_rng(SEED)
 DATA = sys.argv[1] if len(sys.argv) > 1 else "modeling_dataset_step1.csv"
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out")
 T = lambda n: os.path.join(OUT, "tables", n); P = lambda n: os.path.join(OUT, "preds", n)
-os.makedirs(os.path.join(OUT, "preds"), exist_ok=True)
+for _sub in ("preds", "tables", "figures"):
+    os.makedirs(os.path.join(OUT, _sub), exist_ok=True)
 t0 = time.time()
 def log(*a): print(f"[{time.time()-t0:7.1f}s]", *a, flush=True)
 KEY = {}   # key numbers for the manuscript

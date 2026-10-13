@@ -6,3 +6,4 @@ statsmodels
 matplotlib
 pillow
 # document build only: node + npm package "docx"
+pytest
