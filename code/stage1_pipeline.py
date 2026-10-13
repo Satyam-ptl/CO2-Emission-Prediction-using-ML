@@ -12,11 +12,12 @@ from sklearn.ensemble import RandomForestRegressor, HistGradientBoostingRegresso
 from sklearn.inspection import permutation_importance
 from sklearn.metrics import mean_absolute_error as MAE, mean_squared_error as MSE, r2_score
 from statsmodels.stats.multitest import multipletests
+from conformal_utils import finite_sample_quantile
 warnings.filterwarnings("ignore")
 
 SEED = 42; RNG = np.random.default_rng(SEED)
 DATA = sys.argv[1] if len(sys.argv) > 1 else "modeling_dataset_step1.csv"
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out")
+OUT = "out"
 T = lambda n: os.path.join(OUT, "tables", n); P = lambda n: os.path.join(OUT, "preds", n)
 for _sub in ("preds", "tables", "figures"):
     os.makedirs(os.path.join(OUT, _sub), exist_ok=True)
@@ -207,10 +208,10 @@ KEY["national_bias_pct"] = {c: float(((agg[c] - agg.actual) / agg.actual * 100).
 def qhgb(a, f): return HistGradientBoostingRegressor(loss="quantile", quantile=a, learning_rate=0.05, max_iter=300, l2_regularization=1.0, random_state=SEED)
 lo = qhgb(.1, FE).fit(fit[FE], fit.target); hi = qhgb(.9, FE).fit(fit[FE], fit.target)
 lv, hv = np.minimum(lo.predict(val[FE]), hi.predict(val[FE])), np.maximum(lo.predict(val[FE]), hi.predict(val[FE]))
-score = np.maximum(lv - val.target.values, val.target.values - hv); n = len(score)
-qhat = np.quantile(score, min(1, np.ceil((n + 1) * 0.8) / n))
+score = np.maximum(lv - val.target.values, val.target.values - hv)
+qhat = finite_sample_quantile(score, 0.8)
 lt, ht = lo.predict(te[FE]), hi.predict(te[FE]); lt, ht = np.minimum(lt, ht), np.maximum(ht, lt)
-yt = te.target.values; lt = np.maximum(lt, 0); 
+yt = te.target.values; lt = np.maximum(lt, 0); ht = np.maximum(ht, lt)
 def cover(l, h): return ((yt >= l) & (yt <= h))
 def iscore(l, h, a=0.2): return (h - l) + (2 / a) * np.maximum(l - yt, 0) + (2 / a) * np.maximum(yt - h, 0)
 cqr_l, cqr_h = np.maximum(lt - qhat, 0), ht + qhat

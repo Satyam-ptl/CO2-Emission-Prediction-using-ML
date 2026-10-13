@@ -6,16 +6,23 @@ ICI values are transcribed from PIB Release ID 2276691 (22 Jun 2026), Annexure-I
 import numpy as np, pandas as pd, json, os, warnings
 from scipy import stats
 from sklearn.ensemble import HistGradientBoostingRegressor
+from conformal_utils import finite_sample_quantile
 warnings.filterwarnings("ignore")
 OUT = "out"
 for _sub in ("preds", "tables", "figures"):
     os.makedirs(os.path.join(OUT, _sub), exist_ok=True)
 T = lambda n: os.path.join(OUT, "tables", n)
-ici = pd.DataFrame({
- "month": pd.to_datetime(["2025-05-01","2025-06-01","2025-07-01","2025-08-01","2025-09-01","2025-10-01","2025-11-01","2025-12-01","2026-01-01","2026-02-01","2026-03-01","2026-04-01","2026-05-01"]),
- "ici_cement_index": [209.0,214.7,194.8,186.9,187.7,196.9,202.8,240.8,244.6,234.3,257.7,221.2,226.6],
- "ici_cement_yoy_pct": [9.7,8.2,11.6,5.4,5.0,5.2,14.6,13.7,11.3,8.9,4.7,8.2,8.4]})
-ici["provisional"] = ici.month.eq("2026-05-01")
+ICI_PATH = "T13_external_ICI_cement_PIB.csv"
+ICI_COLUMNS = ["month", "ici_cement_index", "ici_cement_yoy_pct", "provisional"]
+ici = pd.read_csv(ICI_PATH, parse_dates=["month"])
+if list(ici.columns) != ICI_COLUMNS:
+    raise ValueError(f"{ICI_PATH} must have columns {ICI_COLUMNS}")
+if ici.empty or ici[ICI_COLUMNS].isna().any().any():
+    raise ValueError(f"{ICI_PATH} contains missing values or no observations")
+if ici.month.duplicated().any() or not ici.month.is_monotonic_increasing:
+    raise ValueError(f"{ICI_PATH} months must be unique and sorted")
+if (ici.ici_cement_index <= 0).any() or ~ici.provisional.isin([True, False]).all():
+    raise ValueError(f"{ICI_PATH} contains invalid index or provisional values")
 ici.to_csv(T("T13_external_ICI_cement_PIB.csv"), index=False)
 
 raw = pd.read_csv("modeling_dataset_step1.csv", parse_dates=["start_time"])
@@ -38,7 +45,9 @@ ext = dict(n_months=len(m), r_level_total=r_lvl, p_level_total=p_lvl, spearman_l
 # full-year growth: Climate TRACE total for 12 months to Apr-2026 vs 12 months to Apr-2025
 def tot(a, b): return ct[a:b].sum()
 ext["ct_12m_to_Apr26_vs_prev_pct"] = (tot("2025-05-01", "2026-04-01") / tot("2024-05-01", "2025-04-01") - 1) * 100
-json.dump(ext, open(T("external_key_numbers.json"), "w"), indent=2); print(json.dumps(ext, indent=1)); print(m.round(2).to_string())
+with open(T("external_key_numbers.json"), "w", encoding="utf-8") as f:
+    json.dump(ext, f, indent=2)
+print(json.dumps(ext, indent=1)); print(m.round(2).to_string())
 
 # ---------------- Mondrian CQR by size quartile ----------------
 SEED = 42
@@ -56,9 +65,9 @@ def band(x): a, b = lo.predict(x[FE]), hi.predict(x[FE]); return np.minimum(a, b
 lv, hv = band(val); lt, ht = band(te); sv = np.maximum(lv - val.target.values, val.target.values - hv)
 qv = val.source_id.map(q).values; qt = te.source_id.map(q).values; qhat = {}
 for k in q.cat.categories:
-    s = sv[qv == k]; n = len(s); qhat[k] = np.quantile(s, min(1, np.ceil((n + 1) * 0.8) / n))
+    qhat[k] = finite_sample_quantile(sv[qv == k], 0.8)
 adj = np.array([qhat[k] for k in qt]); yt = te.target.values
-L, H = np.maximum(lt - adj, 0), ht + adj
+L, H = np.maximum(lt - adj, 0), np.maximum(ht + adj, 0)
 cov = (yt >= L) & (yt <= H)
 res = pd.DataFrame({"size_q": qt, "cov": cov, "width": H - L}).groupby("size_q").agg(n=("cov", "size"), coverage=("cov", "mean"), mean_width=("width", "mean")).reset_index()
 tot = pd.DataFrame([{"size_q": "All", "n": len(cov), "coverage": cov.mean(), "mean_width": (H - L).mean()}])

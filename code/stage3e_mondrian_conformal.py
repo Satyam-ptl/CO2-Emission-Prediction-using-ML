@@ -2,6 +2,7 @@
 (computed only from targets observed before origin t); separate calibration quantile per class; plus a 'zero-regime'
 class for plants whose last observed target was <=1 t. alpha=0.10, WARM=8 origins."""
 import glob, os, numpy as np, pandas as pd
+from conformal_utils import finite_sample_quantile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # pipeline mode: stages run inside work/ and write work/out; shipped-package mode: curated results/
 BASE = "out" if os.path.isdir("out/preds/s3") else f"{ROOT}/results"
@@ -25,17 +26,30 @@ for t in origins:
         past["s"] = (past.actual - past[M]).abs() / past.source_id.map(mean).clip(lower=1.0)
         cc, _ = cls(cur, past); sc = cur.source_id.map(mean).fillna(cur.actual.mean()).clip(lower=1.0)
         qs = {}
+        ns = {}
         for k in cc.unique():
             s = np.sort(past.loc[past.cl == k, "s"].values)
-            if len(s) < 30: s = np.sort(past.s.values)
-            qs[k] = s[min(len(s), int(np.ceil((len(s)+1)*(1-ALPHA)))) - 1]
+            ns[k] = len(s)
+            if len(s) < 30:
+                s = np.sort(past.s.values)
+            qs[k] = finite_sample_quantile(s, 1 - ALPHA)
         w = cc.map(qs) * sc
-        rows.append(pd.DataFrame(dict(origin_idx=t, source_id=cur.source_id.values, cl=cc.values, actual=cur.actual.values,
-            lo=(cur[M]-w).values, hi=(cur[M]+w).values, w=w.values)))
+        lo = np.maximum(cur[M] - w, 0)
+        hi = np.maximum(cur[M] + w, lo)
+        rows.append(pd.DataFrame(dict(origin_idx=t, target_month=cur.target_month.values,
+            source_id=cur.source_id.values, model=M, prediction=cur[M].values,
+            cl=cc.values, actual=cur.actual.values, lo=lo.values, hi=hi.values,
+            width=(hi - lo).values, covered=((cur.actual.values >= lo.values) &
+            (cur.actual.values <= hi.values)), miss=((cur.actual.values < lo.values) |
+            (cur.actual.values > hi.values)), calibration_n=cc.map(ns).values,
+            qhat=cc.map(qs).values, scale=sc.values)))
     hist.append(cur)
-R = pd.concat(rows); R["miss"] = ((R.actual < R.lo) | (R.actual > R.hi)).astype(float)
+R = pd.concat(rows, ignore_index=True)
+R["covered"] = ((R.actual >= R.lo) & (R.actual <= R.hi))
+R["miss"] = (~R.covered).astype(float)
 size = P.groupby("source_id").actual.mean(); R["size_q"] = R.source_id.map(pd.qcut(size, 4, labels=["Q1 small","Q2","Q3","Q4 large"]))
-g = R.groupby("size_q", observed=True).agg(coverage=("miss", lambda x: 1-x.mean()), mean_width=("w", lambda x: 2*x.mean()), n=("miss","size"))
+R.to_csv(f"{BASE}/preds/stage3_mondrian_intervals.csv", index=False)
+g = R.groupby("size_q", observed=True).agg(coverage=("covered", "mean"), mean_width=("width", "mean"), n=("covered","size"))
 print("overall coverage", round(1-R.miss.mean(),3), "mean width", round((R.hi-R.lo).mean()), "n", len(R)); print(g.round(3))
 z = R[R.actual <= 1.0]; print("zero-target coverage", round(1-z.miss.mean(),3), len(z))
 byo = R.groupby("origin_idx").miss.mean(); print("worst origin cov", round(1-byo.max(),3), "sd", round(byo.std(),3))
