@@ -7,7 +7,10 @@ import numpy as np, pandas as pd, json, os, warnings
 from scipy import stats
 from sklearn.ensemble import HistGradientBoostingRegressor
 warnings.filterwarnings("ignore")
-OUT = "out"; T = lambda n: os.path.join(OUT, "tables", n)
+OUT = "out"
+for _sub in ("preds", "tables", "figures"):
+    os.makedirs(os.path.join(OUT, _sub), exist_ok=True)
+T = lambda n: os.path.join(OUT, "tables", n)
 ici = pd.DataFrame({
  "month": pd.to_datetime(["2025-05-01","2025-06-01","2025-07-01","2025-08-01","2025-09-01","2025-10-01","2025-11-01","2025-12-01","2026-01-01","2026-02-01","2026-03-01","2026-04-01","2026-05-01"]),
  "ici_cement_index": [209.0,214.7,194.8,186.9,187.7,196.9,202.8,240.8,244.6,234.3,257.7,221.2,226.6],

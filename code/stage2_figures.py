@@ -2,13 +2,14 @@ import numpy as np, pandas as pd, json, os, matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt, matplotlib.dates as mdates
 T = lambda n: os.path.join("out", "tables", n); F = lambda n: os.path.join("out", "figures", n)
+os.makedirs("out/figures", exist_ok=True)
 plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 8, "axes.titlesize": 8.5, "axes.labelsize": 8, "legend.fontsize": 7,
                      "xtick.labelsize": 7, "ytick.labelsize": 7, "axes.spines.top": False, "axes.spines.right": False,
                      "figure.dpi": 120, "savefig.dpi": 300, "axes.grid": True, "grid.alpha": .25, "grid.linewidth": .5})
 C = {"base": "#8c8c8c", "lin": "#4C78A8", "rf": "#2E7D32", "hgb": "#E69F00", "chg": "#B2182B", "obs": "#111111", "ici": "#7B3294", "ct": "#1B7837"}
 lab = lambda ax, s: ax.text(-0.02, 1.07, s, transform=ax.transAxes, fontweight="bold", fontsize=10, va="bottom", ha="right")
 raw = pd.read_csv("modeling_dataset_step1.csv", parse_dates=["start_time"])
-tot = pd.read_csv(T("F_total_series.csv"), parse_dates=["start_time"], index_col=0).iloc[:, 0] if False else raw.groupby("start_time").emissions_quantity.sum()
+tot = raw.groupby("start_time").emissions_quantity.sum()
 # ---------------- Fig 1
 fig, ax = plt.subplots(1, 3, figsize=(7.4, 2.5), gridspec_kw={"width_ratios": [1.5, 1, 1]})
 ax[0].plot(tot.index, tot / 1e6, color=C["ct"], lw=1.2); ax[0].axvspan(pd.Timestamp("2025-07-01"), tot.index.max(), color="#f0c040", alpha=.25, lw=0)
